@@ -3,3 +3,8 @@
 build/
 out/
 *.json
+*.ini
+curve_data.txt
+!test_cases.json
+AGENTS.md
+PROJECT_STATUS.md

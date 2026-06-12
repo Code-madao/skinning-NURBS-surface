@@ -17,6 +17,8 @@ class CurveRender {
 
 private:
     Shader shader;
+    float lineWidth;
+    bool drawOnTop;
 
     // SurfacePlotter surfacePlotter;
     float* vertices;
@@ -45,6 +47,8 @@ public:
     uint getNumElements(void);
     uint* getIndices(void);
     uint getNumIndices(void);
+    void setLineWidth(float width);
+    void setDrawOnTop(bool enabled);
 
     void Initial(const char* vertexPath, const char* fragmentPath, vector<glm::vec3> Vertices);
     void Draw(Camera camera, glm::mat4 modelMatrix, glm::vec3 lightPos, int windowWidth, int windowHeight);

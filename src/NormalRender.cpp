@@ -1,22 +1,33 @@
 #include "../include/NormalRender.h"
 #include "glm/ext.hpp"
 #include "../include/tinynurbs/tinynurbs.h"
-NormalRender::NormalRender() : vertices(NULL), numElements(0), indices(NULL), numIndices(0), VAO(0), VBO(0), EBO(0) {
+#include "NormalRender.h"
+
+
+NormalRender::NormalRender() : vertices(NULL), numElements(0), indices(NULL), numIndices(0), VAO(0), VBO(0), EBO(0)
+{
 }
 
 // transformation matrices
-glm::mat4 NormalRender::getViewMatrix(Camera camera) {
+glm::mat4 NormalRender::getViewMatrix(Camera camera)
+{
     return camera.getViewMatrix();
 }
-glm::mat4 NormalRender::getProjectionMatrix(Camera camera, int windowWidth, int windowHeight) {
-    return glm::perspective(glm::radians(camera.zoom), (float)windowWidth / (float)windowHeight, 0.1f, 99999.0f);
+glm::mat4 NormalRender::getProjectionMatrix(Camera camera, int windowWidth, int windowHeight)
+{
+    float aspect = (float)windowWidth / (float)(windowHeight > 0 ? windowHeight : 1);
+    float halfHeight = camera.zoom * 0.5f;
+    float halfWidth = halfHeight * aspect;
+    return glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, -99999.0f, 99999.0f);
 }
-glm::mat4 NormalRender::getDefaultModelMatrix(void) {
-    //return glm::mat4(1.0f); // identity
+glm::mat4 NormalRender::getDefaultModelMatrix(void)
+{
+    // return glm::mat4(1.0f); // identity
     return glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
-void NormalRender::generateVerticesIndices(vector<vector<glm::vec3>> Vertices, vector<vector<glm::vec3>> OffsetVertex) {
+void NormalRender::generateVerticesIndices(vector<vector<glm::vec3>> Vertices, vector<vector<glm::vec3>> OffsetVertex)
+{
 
     int numX = Vertices.size();
     int numY = Vertices.size();
@@ -41,7 +52,7 @@ void NormalRender::generateVerticesIndices(vector<vector<glm::vec3>> Vertices, v
             this->vertices[(x * numY + y) * 6 + 5] = OffsetVertex[x][y].z;
         }
     }
-     
+
     // indices:
     // deallocte old data
 
@@ -54,42 +65,48 @@ void NormalRender::generateVerticesIndices(vector<vector<glm::vec3>> Vertices, v
     int j = 0;
     for (int i = 0; i < this->numIndices / 2; i++)
     {
-        this->indices[j++] = i*2;
-        this->indices[j++] = i*2 + 1;
+        this->indices[j++] = i * 2;
+        this->indices[j++] = i * 2 + 1;
     }
-
 }
 
-float* NormalRender::getVertices(void) {
+float *NormalRender::getVertices(void)
+{
     return this->vertices;
 }
-uint NormalRender::getNumElements(void) {
+uint NormalRender::getNumElements(void)
+{
     return this->numElements;
 }
-uint* NormalRender::getIndices(void) {
+uint *NormalRender::getIndices(void)
+{
     return this->indices;
 }
-uint NormalRender::getNumIndices(void) {
+uint NormalRender::getNumIndices(void)
+{
     return this->numIndices;
 }
 
-uint NormalRender::generateBuffer(void) {
+uint NormalRender::generateBuffer(void)
+{
     uint buf;
     glGenBuffers(1, &buf);
     return buf;
 }
-uint NormalRender::generateVAO(void) {
+uint NormalRender::generateVAO(void)
+{
     uint vao;
     glGenVertexArrays(1, &vao);
     return vao;
 }
 
-void NormalRender::Initial(const char* vertexPath, const char* fragmentPath, vector<vector<glm::vec3>> Vertices, vector<vector<glm::vec3>> OffsetVertex) {
+void NormalRender::Initial(const char *vertexPath, const char *fragmentPath, vector<vector<glm::vec3>> Vertices, vector<vector<glm::vec3>> OffsetVertex)
+{
 
-    //Initial shader
+    // Initial shader
     this->shader = Shader(vertexPath, fragmentPath);
 
-    //Generate default data
+    // Generate default data
     generateVerticesIndices(Vertices, OffsetVertex);
 
     // generate surface plot VAO and VBO and EBO
@@ -108,14 +125,25 @@ void NormalRender::Initial(const char* vertexPath, const char* fragmentPath, vec
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, getNumIndices() * sizeof(uint), getIndices(), GL_DYNAMIC_DRAW);
 
     // vertices attributes
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void *)0);
     glEnableVertexAttribArray(0);
 
     glBindVertexArray(0);
-
 }
 
-void NormalRender::Draw(Camera camera, glm::mat4 modelMatrix, glm::vec3 lightPos, int windowWidth, int windowHeight) {
+void NormalRender::updateData(vector<vector<glm::vec3>> Vertices, vector<vector<glm::vec3>> OffsetVertex)
+{
+    generateVerticesIndices(Vertices, OffsetVertex);
+
+    glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
+    glBufferData(GL_ARRAY_BUFFER, getNumElements() * sizeof(float), getVertices(), GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, getNumIndices() * sizeof(uint), getIndices(), GL_DYNAMIC_DRAW);
+}
+
+void NormalRender::Draw(Camera camera, glm::mat4 modelMatrix, glm::vec3 lightPos, int windowWidth, int windowHeight)
+{
 
     glm::mat4 viewMatrix = getViewMatrix(camera);
     glm::mat4 projectionMatrix = getProjectionMatrix(camera, windowWidth, windowHeight);
@@ -133,6 +161,16 @@ void NormalRender::Draw(Camera camera, glm::mat4 modelMatrix, glm::vec3 lightPos
     glBufferData(GL_ARRAY_BUFFER, getNumElements() * sizeof(float), getVertices(), GL_STATIC_DRAW);
     glDrawElements(GL_LINES, getNumIndices(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+}
 
-
+NormalRender::~NormalRender()
+{
+    if (this->vertices)
+        delete[] this->vertices;
+    if (this->indices)
+        delete[] this->indices;
+    
+    glDeleteVertexArrays(1, &(this->VAO));
+    glDeleteBuffers(1, &(this->VBO));
+    glDeleteBuffers(1, &this->EBO);
 }

@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <vector>
+#include <Eigen/Dense>
 
 const double DefaultTolerance = 0.1;
 const double DoubleEpsilon = 1E-6;
@@ -84,4 +85,8 @@ namespace MathUtils
 
 	// matrix * result = right.
 	 std::vector<std::vector<double>> SolveLinearSystem(const std::vector<std::vector<double>> &matrix, const std::vector<std::vector<double>> &right);
+
+	 Eigen::PartialPivLU<Eigen::MatrixXd> FactorizeLinearSystem(const std::vector<std::vector<double>> &matrix);
+
+	 std::vector<std::vector<double>> SolveLinearSystem(const Eigen::PartialPivLU<Eigen::MatrixXd> &factorization, const std::vector<std::vector<double>> &right);
 };

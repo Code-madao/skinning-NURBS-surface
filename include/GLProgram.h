@@ -16,102 +16,120 @@
 #include "CurveRender.h"
 #include "MeshRender.h"
 #include "NormalRender.h"
+#include "SettingsPanel.h"
 #include "tinynurbs/tinynurbs.h"
 #include "glm/ext.hpp"
 
-
-class GLProgram 
+class GLProgram
 {
-    private:
-        GLFWwindow* window;
+private:
+    GLFWwindow *window;
 
-        float deltaTime, prevTime;
+    float deltaTime, prevTime;
 
-        struct color {
-            float r = 0.0f;
-            float g = 0.0f;
-            float b = 0.0f;
-            float alpha = 1.0f;
-        } clearColor;
+    struct color
+    {
+        float r = 0.0f;
+        float g = 0.0f;
+        float b = 0.0f;
+        float alpha = 1.0f;
+    } clearColor;
 
-        static glm::vec3 getArcballVector(float x, float y); // helper to cursor callback, (x,y) are raw mouse coordinates
+    static glm::vec3 getArcballVector(float x, float y); // helper to cursor callback, (x,y) are raw mouse coordinates
 
-        vector<CurveRender> curveRender;
-        vector<CurveRender> curveControlPointLineRender;
-        vector<NormalRender> curveDerivateRender; //curve derivate extension line render
+    vector<CurveRender> curveRender;
+    vector<CurveRender> curveControlPointLineRender;
+    vector<NormalRender> curveDerivateRender; // curve derivate extension line render
+    CurveRender objectXAxisRender;
+    CurveRender objectYAxisRender;
+    CurveRender objectZAxisRender;
+    float objectAxisLength = 10.0f;
 
-        vector<SurfaceRender> surfaceRender;
-        vector<MeshRender> meshRender;
-        vector<MeshRender> surfaceControlRender;
-        vector<NormalRender> normalRender;
-        vector<NormalRender> UsurfaceDerivateRender;//u derivate extension line render of a point
-        vector<NormalRender> VsurfaceDerivateRender;//v derivate extension line render of a point
+    vector<SurfaceRender> surfaceRender;
+    vector<MeshRender> meshRender;
+    vector<MeshRender> surfaceControlRender;
+    vector<NormalRender> normalRender;
+    vector<NormalRender> UsurfaceDerivateRender; // u derivate extension line render of a point
+    vector<NormalRender> VsurfaceDerivateRender; // v derivate extension line render of a point
+    RunUiState uiState;
 
-    public:
+public:
+    // input
+    bool enableControl = true;
 
-        // input
-        bool enableControl = true;
+    static int windowWidth, windowHeight;
+    static Camera camera;
+    static bool mousePressed;
+    static double prevMouseX, prevMouseY;
+    static glm::mat4 modelMatrix; // model transform matrix
+    static glm::mat2x3 sceneBBox;
 
-        static int windowWidth, windowHeight;
-        static Camera camera;
-        static bool mousePressed;
-        static double prevMouseX, prevMouseY;
-        static glm::mat4 modelMatrix;
+    // lighting
+    glm::vec3 lightPos;
 
-        // lighting
-        glm::vec3 lightPos;
+    GLProgram();
 
-        GLProgram();
+    // float version
+    // void init(vector<tinynurbs::RationalCurve<float>> curves, vector<tinynurbs::RationalSurface<float>> surfaces);
+    // void run(vector<tinynurbs::RationalCurve<float>> curves, vector<tinynurbs::RationalSurface<float>> surfaces);
+    // origin version
+    void init(vector<tinynurbs::RationalCurve<double>> curves, vector<tinynurbs::RationalSurface<double>> surfaces);
+    void run(vector<tinynurbs::RationalCurve<double>> curves, vector<tinynurbs::RationalSurface<double>> surfaces);
+    void cleanup(void);
 
-        // float version
-        //void init(vector<tinynurbs::RationalCurve<float>> curves, vector<tinynurbs::RationalSurface<float>> surfaces);
-        //void run(vector<tinynurbs::RationalCurve<float>> curves, vector<tinynurbs::RationalSurface<float>> surfaces);
-        //origin version
-        void init(vector<tinynurbs::RationalCurve<double>> curves, vector<tinynurbs::RationalSurface<double>> surfaces);
-        void run(vector<tinynurbs::RationalCurve<double>> curves, vector<tinynurbs::RationalSurface<double>> surfaces);
-        void cleanup(void);
+    void setClearColor(float r, float g, float b, float alpha);
 
-        void setClearColor(float r, float g, float b, float alpha);
+    // event callback functions
+    // float version
+    // void framebufferSizeCallback(GLFWwindow* window, int width, int height);
+    // void scrollCallback(GLFWwindow* window, float xoffset, float yoffset);
+    // void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+    // void cursorPosCallback(GLFWwindow* window, float xpos, float ypos);
+    // origin version
+    void framebufferSizeCallback(GLFWwindow *window, int width, int height);
+    void scrollCallback(GLFWwindow *window, double xoffset, double yoffset);
+    void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
+    void cursorPosCallback(GLFWwindow *window, double xpos, double ypos);
 
-        // event callback functions
-        // float version
-        //void framebufferSizeCallback(GLFWwindow* window, int width, int height);
-        //void scrollCallback(GLFWwindow* window, float xoffset, float yoffset);
-        //void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
-        //void cursorPosCallback(GLFWwindow* window, float xpos, float ypos);
-        // origin version
-        void framebufferSizeCallback(GLFWwindow* window, int width, int height);
-        void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
-        void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
-        void cursorPosCallback(GLFWwindow* window, double xpos, double ypos);
-
-        // input
-        void processInput(void);
+    void fittingToObjects();
+    // WASD, esc keyboard input
+    void processKeyboardInput(void);
 
 private:
+    void drawSurfaces(const vector<tinynurbs::RationalSurface<double>> &surfaces);
+    void drawCurves(const vector<tinynurbs::RationalCurve<double>> &curves);
+    void drawMeshes(void);
+    void drawOverlays(void);
+    void initializeWindow(void);
+    void initializeImGui(void);
+    void initializeAxes(void);
+    void computeSceneBounds(const vector<tinynurbs::RationalSurface<double>> &surfaces);
+    void initializeSurfaceRenderers(const vector<tinynurbs::RationalSurface<double>> &surfaces);
+    void initializeCurveRenderers(const vector<tinynurbs::RationalCurve<double>> &curves);
+
     // Wrapper for glfwGetWindowUserPointer() returning this class instance.
-    static GLProgram* _this(GLFWwindow* window)
+    static GLProgram *_this(GLFWwindow *window)
     {
-        return static_cast<GLProgram*>(glfwGetWindowUserPointer(window));
+        return static_cast<GLProgram *>(glfwGetWindowUserPointer(window));
     }
-    static void _framebufferSizeCallback(GLFWwindow* window, int width, int height)
+    static void _framebufferSizeCallback(GLFWwindow *window, int width, int height)
     {
         _this(window)->framebufferSizeCallback(window, width, height);
     }
-    static void _scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+    static void _scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
     {
         _this(window)->scrollCallback(window, xoffset, yoffset);
     }
-    static void _mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+    static void _mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
     {
         _this(window)->mouseButtonCallback(window, button, action, mods);
     }
-    static void _cursorPosCallback(GLFWwindow* window, double xpos, double ypos)
+    static void _cursorPosCallback(GLFWwindow *window, double xpos, double ypos)
     {
         _this(window)->cursorPosCallback(window, xpos, ypos);
     }
 };
 
-void apiOfCreateLoftSurface(const vector<tinynurbs::RationalCurve3d>& inputSections, tinynurbs::RationalSurface3d& result);
+void apiOfCreateLoftSurface(const vector<tinynurbs::RationalCurve3d> &inputSections, tinynurbs::RationalSurface3d &result);
 
-#endif //GLPROGRAM_H
+#endif // GLPROGRAM_H

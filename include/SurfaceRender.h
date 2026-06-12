@@ -49,7 +49,8 @@ class SurfaceRender {
 
         void Initial(const char* vertexPath, const char* fragmentPath, vector<vector<glm::vec3>> Vertices, vector<vector<glm::vec3>> Normal);
         void Draw(Camera camera, glm::mat4 modelMatrix, glm::vec3 lightPos, int windowWidth, int windowHeight);
-
+        
+        ~SurfaceRender();
 };
 
 

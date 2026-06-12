@@ -2,8 +2,8 @@
 
 Shader::Shader() {}
 
-Shader::Shader(const char* vertexPath, const char* fragmentPath) {
-
+Shader::Shader(const char *vertexPath, const char *fragmentPath)
+{
     // retrieve vertex / fragment shader source code from file path
     std::string vertexString, fragmentString;
     std::ifstream vertexFile, fragmentFile;
@@ -13,7 +13,8 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     vertexFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     fragmentFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 
-    try {
+    try
+    {
         // open files
         vertexFile.open(vertexPath);
         fragmentFile.open(fragmentPath);
@@ -30,13 +31,14 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
         vertexString = vertexStream.str();
         fragmentString = fragmentStream.str();
     }
-    catch (std::ifstream::failure e) {
+    catch (std::ifstream::failure e)
+    {
         std::cout << "ERROR: SHADER FILE WAS UNSUCCESSFULLY READ" << std::endl;
         exit(-1);
     }
 
-    const char* vertexCode = vertexString.c_str();
-    const char* fragmentCode = fragmentString.c_str();
+    const char *vertexCode = vertexString.c_str();
+    const char *fragmentCode = fragmentString.c_str();
 
     // compile shaders
     uint vertex, fragment;
@@ -63,9 +65,11 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
 
     // check for errors
     glGetProgramiv(ID, GL_LINK_STATUS, &success);
-    if (!success) {
+    if (!success)
+    {
         glGetProgramInfoLog(ID, 512, NULL, infoLog);
-        std::cout << "ERROR: SHADER PROGRAM LINKING FAILED\n" << infoLog << std::endl;
+        std::cout << "ERROR: SHADER PROGRAM LINKING FAILED\n"
+                  << infoLog << std::endl;
     }
 
     // delete shaders (already linked to program and no longer needed)
@@ -73,37 +77,49 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     glDeleteShader(fragment);
 }
 
-void Shader::use(void) {
+void Shader::use(void)
+{
     glUseProgram(ID);
 }
 
-void Shader::setFloatUniform(const std::string &name, float value) const {
+void Shader::setFloatUniform(const std::string &name, float value) const
+{
     glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
 }
 
-void Shader::setVec3Uniform(const std::string &name, glm::vec3 value) const {
+void Shader::setVec3Uniform(const std::string &name, glm::vec3 value) const
+{
     glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
 }
 
-void Shader::setMat4Uniform(const std::string &name, glm::mat4 value) const {
+void Shader::setMat4Uniform(const std::string &name, glm::mat4 value) const
+{
     glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void Shader::checkCompileErrors(uint shader, std::string type) {
+void Shader::checkCompileErrors(uint shader, std::string type)
+{
     int success;
     char infoLog[1024];
-    if (type != "PROGRAM") {
+    if (type != "PROGRAM")
+    {
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-        if (!success) {
+        if (!success)
+        {
             glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-            std::cout << "ERROR: SHADER COMPILATION ERROR OF TYPE: " << type << "\n" << infoLog
+            std::cout << "ERROR: SHADER COMPILATION ERROR OF TYPE: " << type << "\n"
+                      << infoLog
                       << "\n -- --------------------------------------------------- -- " << std::endl;
         }
-    } else {
+    }
+    else
+    {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
-        if (!success) {
+        if (!success)
+        {
             glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-            std::cout << "ERROR: PROGRAM LINKING ERROR OF TYPE: " << type << "\n" << infoLog
+            std::cout << "ERROR: PROGRAM LINKING ERROR OF TYPE: " << type << "\n"
+                      << infoLog
                       << "\n -- --------------------------------------------------- -- " << std::endl;
         }
     }

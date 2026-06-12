@@ -1,5 +1,6 @@
 ﻿#include "../include/MathUtils.h"
 #include <limits>
+#include <stdexcept>
 
 void GetCoFactor(const std::vector<std::vector<double>> &matrix, std::vector<std::vector<double>> &temp, int row, int column, int n)
 {
@@ -506,14 +507,60 @@ bool MathUtils::LUPDecomposition(const std::vector<std::vector<double>> &matrix,
     return true;
 }
 
-std::vector<std::vector<double>> MathUtils::SolveLinearSystem(const std::vector<std::vector<double>> &matrix, const std::vector<std::vector<double>> &right)
+Eigen::PartialPivLU<Eigen::MatrixXd> MathUtils::FactorizeLinearSystem(const std::vector<std::vector<double>> &matrix)
 {
-    std::vector<std::vector<double>> result;
-    std::vector<std::vector<double>> inverse;
-    bool canInverse = MakeInverse(matrix, inverse);
-    if (canInverse)
+    if (matrix.empty() || matrix[0].empty())
+        throw std::runtime_error("Linear system matrix must not be empty.");
+
+    const int rows = static_cast<int>(matrix.size());
+    const int cols = static_cast<int>(matrix[0].size());
+    Eigen::MatrixXd dense(rows, cols);
+
+    for (int i = 0; i < rows; ++i)
     {
-        result = MatrixMultiply(inverse, right);
+        if (static_cast<int>(matrix[i].size()) != cols)
+            throw std::runtime_error("Linear system matrix must be rectangular.");
+        for (int j = 0; j < cols; ++j)
+        {
+            dense(i, j) = matrix[i][j];
+        }
+    }
+
+    return dense.partialPivLu();
+}
+
+std::vector<std::vector<double>> MathUtils::SolveLinearSystem(const Eigen::PartialPivLU<Eigen::MatrixXd> &factorization, const std::vector<std::vector<double>> &right)
+{
+    if (right.empty() || right[0].empty())
+        return {};
+
+    const int rows = static_cast<int>(right.size());
+    const int cols = static_cast<int>(right[0].size());
+    Eigen::MatrixXd rhs(rows, cols);
+
+    for (int i = 0; i < rows; ++i)
+    {
+        if (static_cast<int>(right[i].size()) != cols)
+            throw std::runtime_error("Right-hand side matrix must be rectangular.");
+        for (int j = 0; j < cols; ++j)
+        {
+            rhs(i, j) = right[i][j];
+        }
+    }
+
+    Eigen::MatrixXd solution = factorization.solve(rhs);
+    std::vector<std::vector<double>> result(solution.rows(), std::vector<double>(solution.cols(), 0.0));
+    for (int i = 0; i < solution.rows(); ++i)
+    {
+        for (int j = 0; j < solution.cols(); ++j)
+        {
+            result[i][j] = solution(i, j);
+        }
     }
     return result;
+}
+
+std::vector<std::vector<double>> MathUtils::SolveLinearSystem(const std::vector<std::vector<double>> &matrix, const std::vector<std::vector<double>> &right)
+{
+    return SolveLinearSystem(FactorizeLinearSystem(matrix), right);
 }

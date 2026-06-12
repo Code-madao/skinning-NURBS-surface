@@ -18,6 +18,8 @@ using vec3f = glm::f64vec3;
 
 namespace myNurbs
 {
+    constexpr int kMaxVDegree = 3;
+
     // return index of first knot less than u
     inline size_t getKnotSpanIndex(unsigned degree, const vector<double> &knots, double u)
     {
@@ -71,12 +73,28 @@ namespace myNurbs
     inline vector<glm::dvec4> getWeightCurveCtrPnts(const tinynurbs::RationalCurve3d& curve)
     {
         vector<glm::dvec4> res;
+        res.reserve(curve.control_points.size());
         for (size_t i = 0; i < curve.control_points.size(); i++)
         {
             glm::dvec4 temp = glm::dvec4(curve.control_points[i]*curve.weights[i], curve.weights[i]);
             res.emplace_back(temp);
         }
         return res;
+    }
+
+    inline tinynurbs::array2<glm::dvec4> getWeightSurfaceCtrPnts(const tinynurbs::RationalSurface3d &surf)
+    {
+        tinynurbs::array2<glm::dvec4> ctrPointsWithWeight;
+        ctrPointsWithWeight.resize(surf.control_points.rows(), surf.control_points.cols());
+
+        for (size_t i = 0; i < surf.control_points.rows(); i++)
+        {
+            for (size_t j = 0; j < surf.control_points.cols(); j++)
+            {
+                ctrPointsWithWeight(i, j) = glm::dvec4(surf.control_points(i, j) * surf.weights(i, j), surf.weights(i, j));
+            }
+        }
+        return ctrPointsWithWeight;
     }
     
     inline void decomposeWeightCurveCtrPnts(const vector<glm::dvec4>& wCtrPnts, vector<vec3f>& ctrPnts, vector<double>& weight)
@@ -110,17 +128,9 @@ namespace myNurbs
     // NURBS curve
     inline vec3f myRationalCurvePoint(const tinynurbs::RationalCurve3d &crv, double u)
     {
-        // return tinynurbs::curvePoint(crv, u);
-        vector<glm::dvec4> ctrPntsWithWeights;
-        for (size_t i = 0; i < crv.control_points.size(); ++i)
-        {
-            ctrPntsWithWeights.push_back(glm::dvec4(crv.control_points[i] * crv.weights[i], crv.weights[i])); // MAYBEBUG
-        }
-
+        vector<glm::dvec4> ctrPntsWithWeights = getWeightCurveCtrPnts(crv);
         glm::dvec4 point = myCurvePointTemplate<glm::dvec4>(crv.degree, crv.knots, ctrPntsWithWeights, u);
-        // glm::dvec4 point = tinynurbs::internal::curvePoint<4,double>(crv.degree, crv.knots, ctrPntsWithWeights, u);
-
-        return vec3f(point / point.w); // MAYBEBUG
+        return vec3f(point / point.w);
     }
 
     inline vector<vector<double>> getBasisFuncDerivatives(size_t spanIndex, unsigned degree, int derivativeNum,
@@ -261,9 +271,7 @@ namespace myNurbs
     inline vector<vec3f> myRationalCurveDerivative(const tinynurbs::RationalCurve3d &crv, int derivativeNum, double u)
     {
         vector<vec3f> result;
-        vector<glm::dvec4> ctrPntsWithWeights;
-        for (size_t i = 0; i < crv.control_points.size(); ++i)
-            ctrPntsWithWeights.push_back(glm::dvec4(crv.control_points[i] * crv.weights[i], crv.weights[i])); // MAYBEBUG
+        vector<glm::dvec4> ctrPntsWithWeights = getWeightCurveCtrPnts(crv);
 
         vector<glm::dvec4> tempDer = myCurveDerivativeTemplate<glm::dvec4>(crv.degree, crv.knots, ctrPntsWithWeights, derivativeNum, u);
 
@@ -315,24 +323,11 @@ namespace myNurbs
 
     inline vec3f myRationalSurfPoint(const tinynurbs::RationalSurface3d &surf, double u, double v)
     {
-        size_t rows = surf.control_points.rows();
-        size_t cols = surf.control_points.cols();
-
-        tinynurbs::array2<glm::dvec4> ctrPointsWithWeight;
-        ctrPointsWithWeight.resize(rows, cols);
-
-        for (size_t i = 0; i < surf.control_points.rows(); i++)
-        {
-            for (size_t j = 0; j < surf.control_points.cols(); j++)
-            {
-                ctrPointsWithWeight(i, j) = (glm::dvec4(surf.control_points(i, j) * surf.weights(i, j), surf.weights(i, j)));
-            }
-        }
-
+        tinynurbs::array2<glm::dvec4> ctrPointsWithWeight = getWeightSurfaceCtrPnts(surf);
         glm::dvec4 result = mySurfPointTemplate<glm::dvec4>(surf.degree_u, surf.knots_u, u,
                                                             surf.degree_v, surf.knots_v, v,
                                                             ctrPointsWithWeight);
-        return vec3f(result / result.w); // MAYBEBUG
+        return vec3f(result / result.w);
     }
 
     template <typename T>
@@ -379,11 +374,7 @@ namespace myNurbs
 
     inline tinynurbs::array2<vec3f> myRationalSurfDerivative(const tinynurbs::RationalSurface3d &surf, int derivativeNum, double u, double v)
     {
-        tinynurbs::array2<glm::dvec4> ctrPntsWithWeights;
-        ctrPntsWithWeights.resize(surf.control_points.rows(), surf.control_points.cols());
-        for (size_t i = 0; i < surf.control_points.rows(); i++)
-            for (size_t j = 0; j < surf.control_points.cols(); j++)
-                ctrPntsWithWeights(i, j) = glm::dvec4(surf.control_points(i, j) * surf.weights(i, j), surf.weights(i, j));
+        tinynurbs::array2<glm::dvec4> ctrPntsWithWeights = getWeightSurfaceCtrPnts(surf);
 
         vector<vector<glm::dvec4>> tempDer = mySurfDerivativeTemplate<glm::dvec4>(surf.degree_u, surf.knots_u, u,
                                                                                   surf.degree_v, surf.knots_v, v,
@@ -685,7 +676,6 @@ namespace myNurbs
     inline void refineKnotsCurve(const tinynurbs::RationalCurve3d& curve, const vector<double>& knotInserted, tinynurbs::RationalCurve3d& result)
     {
         assert(!knotInserted.empty());
-        printf("refining knots...\n");
         int degree = curve.degree;
         std::vector<double> knotVector = curve.knots;
         std::vector<glm::dvec4> controlPoints = getWeightCurveCtrPnts(curve);
@@ -767,7 +757,6 @@ namespace myNurbs
         size_t n = targetPnts.size() - 1;
         vector<vector<double>> matrixA(n + 1, vector<double>(n + 1, 0));
         for (size_t i = 1; i < n; i++)
-        // for (size_t i = 0; i <= n; i++)
         {
             int spanIndex = getKnotSpanIndex(degree, knots, params[i]);
             vector<double> basis = getBsplineBasis(spanIndex, degree, knots, params[i]);
@@ -790,9 +779,8 @@ namespace myNurbs
             }
         }
 
-        // MathUtils aMathUtils;
-        // auto resMatrix = aMathUtils.SolveLinearSystem(matrixA, right);
-        auto resMatrix = MathUtils::SolveLinearSystem(matrixA, right);
+        auto factorization = MathUtils::FactorizeLinearSystem(matrixA);
+        auto resMatrix = MathUtils::SolveLinearSystem(factorization, right);
 
         resCurve.control_points.resize(n + 1, vec3f(0));
         resCurve.weights.resize(n + 1, 1);
@@ -805,11 +793,74 @@ namespace myNurbs
             }
 
             if (dim == 4)
-            { // MAYBEBUG
+            {
                 resCurve.weights[i] = temp.w;
                 temp /= temp.w;
             }
             resCurve.control_points[i] = vec3f(temp);
+        }
+    }
+
+    inline vector<vector<double>> buildInterpolationMatrix(size_t degree, const vector<double> &params, const vector<double> &knots)
+    {
+        size_t n = params.size() - 1;
+        vector<vector<double>> matrixA(n + 1, vector<double>(n + 1, 0.0));
+        for (size_t i = 1; i < n; i++)
+        {
+            int spanIndex = getKnotSpanIndex(degree, knots, params[i]);
+            vector<double> basis = getBsplineBasis(spanIndex, degree, knots, params[i]);
+            for (size_t j = 0; j <= degree; j++)
+            {
+                matrixA[i][spanIndex - degree + j] = basis[j];
+            }
+        }
+        matrixA[0][0] = 1.0;
+        matrixA[n][n] = 1.0;
+        return matrixA;
+    }
+
+    inline void solveInterpolationColumns(
+        const vector<vector<glm::dvec4>> &dataColumns,
+        size_t degree,
+        const vector<double> &params,
+        const vector<double> &knots,
+        tinynurbs::array2<vec3f> &controlPoints,
+        tinynurbs::array2<double> &weights)
+    {
+        assert(!dataColumns.empty());
+        const size_t vCtrPntsNum = dataColumns.size();
+        const size_t uCtrPntSize = dataColumns[0].size();
+
+        vector<vector<double>> matrixA = buildInterpolationMatrix(degree, params, knots);
+        auto factorization = MathUtils::FactorizeLinearSystem(matrixA);
+
+        vector<vector<double>> right(vCtrPntsNum, vector<double>(uCtrPntSize * 4, 0.0));
+        for (size_t row = 0; row < vCtrPntsNum; ++row)
+        {
+            for (size_t col = 0; col < uCtrPntSize; ++col)
+            {
+                const glm::dvec4 &p = dataColumns[row][col];
+                right[row][col * 4 + 0] = p.x;
+                right[row][col * 4 + 1] = p.y;
+                right[row][col * 4 + 2] = p.z;
+                right[row][col * 4 + 3] = p.w;
+            }
+        }
+
+        vector<vector<double>> solved = MathUtils::SolveLinearSystem(factorization, right);
+        for (size_t row = 0; row < vCtrPntsNum; ++row)
+        {
+            for (size_t col = 0; col < uCtrPntSize; ++col)
+            {
+                glm::dvec4 weightedPoint(
+                    solved[row][col * 4 + 0],
+                    solved[row][col * 4 + 1],
+                    solved[row][col * 4 + 2],
+                    solved[row][col * 4 + 3]);
+
+                weights(col, row) = weightedPoint.w;
+                controlPoints(col, row) = vec3f(weightedPoint / weightedPoint.w);
+            }
         }
     }
 
@@ -903,10 +954,6 @@ namespace myNurbs
        {
           uniformKnotsU = mergeKnots(uniformKnotsU, sections[i].knots);
        }
-       //printf("uniformKnotsU.size: %d\n", uniformKnotsU.size());
-       //for(const auto& ele: uniformKnotsU)
-       //   printf("%.3lf ",ele);
-       //printf("\n");
        return uniformKnotsU;
     }
 
@@ -952,8 +999,13 @@ namespace myNurbs
     {
         typedef glm::dvec4 vec4d;
         vector<tinynurbs::RationalCurve3d> sections = inputSections;
-        size_t sectionSize = sections.size();
-        int k = sectionSize - 1;
+        int sectionSize = sections.size();
+        if (sectionSize < 3)
+        {
+            printf("At least 3 sections are needed to lofting.\n");
+            return;
+        }
+        printf("got %d section curves\n", sectionSize);
 
         int maxDegree = 0;
         for (const auto &it : sections)
@@ -962,10 +1014,12 @@ namespace myNurbs
                 maxDegree = it.degree;
         }
         result.degree_u = maxDegree;
-        result.degree_v = maxDegree > sectionSize ? sectionSize : maxDegree;//degree_v should be <= sectionSize
+        // degree_v should be < sectionSize
+        result.degree_v = std::min(kMaxVDegree, sectionSize - 1);
 
-        /******preprocess: make sure uniform degree and knots******/
-        ///1. uniform degree
+        printf("u: %d, v: %d\n", maxDegree, result.degree_v);
+
+        ///1. uniform degree and knots
         for (auto &ele : sections)
         {
             if (ele.degree < maxDegree)
@@ -977,11 +1031,11 @@ namespace myNurbs
                 assert(ele.degree == maxDegree);
             }
         }
+
         ///2. get uniform knots after elevating degree
         //MAYBEBUG
+        printf("uniforming knot vectors...\n");
         auto uniformKnotsU = getUniformKnots(sections);
-
-         //result.knots_u = sections[0].knots;
         result.knots_u = uniformKnotsU;
 
         ///3. refine each section's knots
@@ -999,11 +1053,8 @@ namespace myNurbs
                 ele = resCurve;
             }
         }
-        /******end of preprocess******/
 
         ///4. build skinning surface
-
-        printf("4.0\n");
         vector<vector<vec4d>> wCtrPointsVector2;
         for (const auto &ele : sections)
         {
@@ -1018,53 +1069,41 @@ namespace myNurbs
         }
 
         ///4.1 compute param vi of ith curve
-        printf("4.1\n");
         vector<double> vParaVector(sectionSize);
         vParaVector[0] = 0;
-        vParaVector[k] = 1;
-        size_t ctrPntSize = wCtrPointsVector2[0].size();
-        size_t n = ctrPntSize - 1;
+        vParaVector[sectionSize - 1] = 1;
+        size_t uCtrPntSize = wCtrPointsVector2[0].size();
 
-        vector<double> di(ctrPntSize, 0);
-        for (size_t i = 0; i < ctrPntSize; ++i) // get di
+        vector<double> di(uCtrPntSize, 0); // control polygon length of each u cp position
+        for (size_t i = 0; i < uCtrPntSize; ++i)
         {
             di[i] = getChordLength(wCtrPointsVector2, i);
         }
-        for (size_t i = 1; i <= k - 1; i++)
+        for (size_t i = 1; i < sectionSize - 1; i++)
         {
             double sumOfChordLengthProportion = 0;
-            for (size_t j = 0; j <= n; j++)
+            for (size_t j = 0; j < uCtrPntSize; j++)
             {
                 auto tChordLength = glm::distance(wCtrPointsVector2[i][j], wCtrPointsVector2[i - 1][j]);
                 sumOfChordLengthProportion += tChordLength / di[j];
             }
             // equation 10.8 in The NURBS book 2nd.
-            // vParaVector[i] = vParaVector[i - 1] + 1. / (ctrPntSize + 1) * sumOfChordLengthProportion;
-            vParaVector[i] = vParaVector[i - 1] + 1. / (n + 1) * sumOfChordLengthProportion;
+            vParaVector[i] = vParaVector[i - 1] + sumOfChordLengthProportion / uCtrPntSize;
         }
 
         ///4.2 average knot v
-        printf("4.2\n");
+        printf("getting V knot vector\n");
         vector<double> knotsV(sectionSize + result.degree_v + 1, 0);
-        for (size_t i = knotsV.size() - result.degree_v - 1; i < knotsV.size(); i++)
+        for (size_t i = sectionSize; i < knotsV.size(); i++)
         {
             knotsV[i] = 1;
         }
         // equation 9.8 in the NURBS book 2nd
-        // for (size_t i = result.degree_v+1; i <= ctrPntSize; i++)
-        //{
-        //    double sumOfVParam=0;
-        //    for (size_t j = i-result.degree_v; j <= i-1; j++)
-        //    {
-        //        sumOfVParam+=vParaVector[j];
-        //    }
-        //    knotsV[i]=sumOfVParam/result.degree_v;
-        //}
         int vCtrPntsNum = vParaVector.size();
-        for (size_t i = 1; i <= vCtrPntsNum - 1 - result.degree_v; ++i)
+        for (int i = 1; i <= vCtrPntsNum - 1 - (int)result.degree_v; ++i)
         {
             double sunOfVParam = 0;
-            for (size_t j = i; j <= i + result.degree_v - 1; ++j)
+            for (int j = i; j <= i + result.degree_v - 1; ++j)
             {
                 sunOfVParam += vParaVector[j];
             }
@@ -1073,29 +1112,11 @@ namespace myNurbs
         result.knots_v = knotsV;
 
         ///4.3 interpolation
-        printf("4.3\n");
-        result.control_points.resize(ctrPntSize, vCtrPntsNum);
-        result.weights.resize(ctrPntSize, vCtrPntsNum);
+        result.control_points.resize(uCtrPntSize, vCtrPntsNum);
+        result.weights.resize(uCtrPntSize, vCtrPntsNum);
 
-        for (size_t i = 0; i < ctrPntSize; i++)
-        {  
-            printf("global interpolating...\n");
-            // vector<vec3f> dataPnts;
-            // for (size_t j = 0; j < sectionSize; j++)
-            //     dataPnts.emplace_back(sections[j].control_points[i]);
-            vector<vec4d> dataPnts;
-            for (size_t j = 0; j < sectionSize; j++)
-                dataPnts.emplace_back(wCtrPointsVector2[j][i]);
-
-            tinynurbs::RationalCurve3d resCurve;
-            globalInterpolation<vec4d>(dataPnts, result.degree_v, vParaVector, result.knots_v, resCurve);
-
-            for (size_t j = 0; j < resCurve.control_points.size(); j++)
-            {
-                result.control_points(i, j) = resCurve.control_points[j];
-                result.weights(i, j) = resCurve.weights[j];
-            }
-        }
+        printf("%d to interpolate\n", uCtrPntSize);
+        solveInterpolationColumns(wCtrPointsVector2, result.degree_v, vParaVector, result.knots_v, result.control_points, result.weights);
     }
 
 } // end of namespace myNurbs
